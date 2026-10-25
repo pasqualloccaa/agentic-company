@@ -29,7 +29,6 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--max-turns", type=int, default=40, help="max agentic turns per agent per week")
     p.add_argument("--wait-on-limit", action="store_true", help="on a usage limit wait and retry instead of stopping")
     p.add_argument("--limit-wait-min", type=float, default=15.0)
-    p.add_argument("--no-safe-mode", action="store_true", help="do not pass --safe-mode to claude")
     p.add_argument("--claude", default="claude", help="Claude Code executable")
     args = p.parse_args(argv)
     if not args.dry_run and not args.model:
@@ -39,10 +38,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         agent, env = DryRunAgent(), {"backend": "dry-run"}
     else:
-        settings = ClaudeSettings(executable=args.claude, model=args.model, max_turns=args.max_turns,
-                                  extra_flags=() if args.no_safe_mode else ("--safe-mode",))
-        env = {**claude_environment(args.claude), "model_requested": args.model,
-               "safe_mode": not args.no_safe_mode}
+        settings = ClaudeSettings(executable=args.claude, model=args.model, max_turns=args.max_turns)
+        env = {**claude_environment(args.claude), "model_requested": args.model}
         agent = ClaudeAgent(settings, out / "agents")
     config = RunConfig(out=out, seed=args.seed, weeks=args.weeks, wait_on_limit=args.wait_on_limit,
                        limit_wait_s=args.limit_wait_min * 60, environment=env)

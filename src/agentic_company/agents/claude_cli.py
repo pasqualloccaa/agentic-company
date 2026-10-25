@@ -16,6 +16,7 @@ import json
 import re
 import shutil
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -51,7 +52,9 @@ class ClaudeSettings:
     model: str | None = None
     max_turns: int = 40
     timeout_s: int = 1200
-    extra_flags: tuple[str, ...] = ("--safe-mode",)
+    extra_flags: tuple[str, ...] = ()   # not --safe-mode: it also drops the --mcp-config server
+    # working directories live outside the repo: Claude Code reads every CLAUDE.md above its cwd
+    sandbox_root: Path = Path(tempfile.gettempdir()) / "agentic-company-sandbox"
 
 
 def allowed_tools() -> list[str]:
@@ -134,13 +137,23 @@ def isolation_problems(meta: dict[str, Any]) -> list[str]:
             problems.append(f"unexpected MCP server: {server.get('name')}")
         elif server.get("status") != "connected":
             problems.append(f"simulation MCP server status: {server.get('status')}")
-    # subagent definitions may be listed, but without the Agent tool they cannot run
-    for key in ("skills", "plugins"):
-        if meta.get(key):
-            problems.append(f"unexpected {key}: {meta[key]}")
+    # subagent definitions may be listed, but without the Agent tool they cannot run;
+    # plugins built into Claude Code itself are present in any configuration
+    if meta.get("skills"):
+        problems.append(f"unexpected skills: {meta['skills']}")
+    plugins = [p.get("name") for p in meta.get("plugins") or [] if p.get("path") != "builtin"]
+    if plugins:
+        problems.append(f"unexpected plugins: {plugins}")
     if meta.get("permission_denials"):
         problems.append(f"permission denials: {meta['permission_denials']}")
     return problems
+
+
+def memory_files_above(folder: Path) -> list[Path]:
+    """Project memory files Claude Code would load when started in `folder`."""
+    names = ("CLAUDE.md", "CLAUDE.local.md", ".claude/CLAUDE.md")
+    found = [d / n for d in (folder, *folder.parents) for n in names if (d / n).is_file()]
+    return [f for f in found if f.parent != Path.home() / ".claude"]   # user memory: see CLAUDE_CONFIG_DIR
 
 
 def claude_environment(executable: str | list[str] = "claude") -> dict[str, Any]:
@@ -166,9 +179,13 @@ class ClaudeAgent:
         self.workdir = workdir
 
     def turn(self, actor: str, week: int, system_prompt: str, briefing: str, mcp_url: str) -> TurnResult:
-        base = self.workdir / actor
-        sandbox = base / "cwd"   # empty working directory: nothing to read
+        base = (self.workdir / actor).resolve()   # claude runs in the sandbox: paths must be absolute
+        base.mkdir(parents=True, exist_ok=True)
+        sandbox = self.settings.sandbox_root / self.workdir.resolve().parent.name / actor   # empty cwd
         sandbox.mkdir(parents=True, exist_ok=True)
+        leaks = memory_files_above(sandbox)
+        if leaks or any(sandbox.iterdir()):
+            raise AgentError(f"{actor} week {week}: sandbox {sandbox} is not clean: {leaks or 'not empty'}")
         system_file, config_file = base / "system_prompt.md", base / "mcp.json"
         system_file.write_text(system_prompt, encoding="utf-8")
         config_file.write_text(json.dumps(mcp_config(mcp_url)), encoding="utf-8")
@@ -178,6 +195,7 @@ class ClaudeAgent:
                                   cwd=sandbox, timeout=self.settings.timeout_s)
         except subprocess.TimeoutExpired as exc:
             raise AgentError(f"{actor} week {week}: claude timed out after {exc.timeout}s") from exc
+        (base / f"w{week:02d}_stream.jsonl").write_text(proc.stdout, encoding="utf-8")  # full transcript
         init, result, tool_uses = parse_stream(proc.stdout)
         result_text = (result or {}).get("result") or ""
         errored = proc.returncode != 0 or result is None or bool(result.get("is_error"))

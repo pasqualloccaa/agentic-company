@@ -17,7 +17,8 @@ FAKE = Path(__file__).parent / "fixtures" / "fake_claude.py"
 def agent(tmp_path, monkeypatch):
     log = tmp_path / "call.json"
     monkeypatch.setenv("FAKE_CLAUDE_LOG", str(log))
-    a = ClaudeAgent(ClaudeSettings(executable=[sys.executable, str(FAKE)], model="sonnet"), tmp_path / "agents")
+    a = ClaudeAgent(ClaudeSettings(executable=[sys.executable, str(FAKE)], model="sonnet",
+                                   sandbox_root=tmp_path / "sandbox"), tmp_path / "run" / "agents")
     a.log = log  # type: ignore[attr-defined]
     return a
 
@@ -27,7 +28,7 @@ def test_command_isolates_the_agent(tmp_path):
     assert "-p" in cmd and "--strict-mcp-config" in cmd and "--no-session-persistence" in cmd
     assert cmd[cmd.index("--tools") + 1] == ""
     assert cmd[cmd.index("--allowedTools") + 1].split(",") == [f"mcp__sim__{t}" for t in TOOLS]
-    assert "--disable-slash-commands" in cmd and "--safe-mode" in cmd
+    assert "--disable-slash-commands" in cmd and "--safe-mode" not in cmd  # safe mode drops our MCP server
     assert not any("dangerously" in c for c in cmd)
 
 
@@ -42,7 +43,24 @@ def test_mcp_config_points_to_the_role_endpoint():
                                                                            "url": "http://127.0.0.1:1/mcp"}}}
 
 
-def test_turn_passes_prompts_and_parses_result(agent, monkeypatch):
+def test_sandbox_below_a_claude_md_is_refused(tmp_path, monkeypatch):
+    (tmp_path / "CLAUDE.md").write_text("# segreto", encoding="utf-8")
+    monkeypatch.setenv("FAKE_CLAUDE_MODE", "ok")
+    a = ClaudeAgent(ClaudeSettings(executable=[sys.executable, str(FAKE)], sandbox_root=tmp_path / "sb"),
+                    tmp_path / "run" / "agents")
+    with pytest.raises(AgentError, match="not clean"):
+        a.turn("uffici", 1, "s", "b", "http://x")
+
+
+def test_builtin_plugins_are_tolerated_personal_ones_are_not():
+    base = {"tools": allowed_tools(), "mcp_servers": [{"name": "sim", "status": "connected"}]}
+    assert isolation_problems({**base, "plugins": [{"name": "cc-plugin-telemetry", "path": "builtin"}],
+                               "agents": ["general-purpose", "architect"]}) == []
+    problems = isolation_problems({**base, "plugins": [{"name": "finance", "path": "C:/x/finance"}]})
+    assert problems == ["unexpected plugins: ['finance']"]
+
+
+def test_turn_passes_prompts_and_parses_result(agent, monkeypatch, tmp_path):
     monkeypatch.setenv("FAKE_CLAUDE_MODE", "ok")
     r = agent.turn("uffici", 3, "SISTEMA", "BRIEFING", "http://127.0.0.1:9/mcp")
     assert r.text == "Ho controllato i conti." and r.usage["output_tokens"] == 5
@@ -50,10 +68,21 @@ def test_turn_passes_prompts_and_parses_result(agent, monkeypatch):
     assert isolation_problems(r.meta) == []
     call = json.loads(agent.log.read_text(encoding="utf-8"))
     assert call["stdin"] == "BRIEFING"                       # briefing via stdin, no length limit
-    assert Path(call["cwd"]).name == "cwd" and not any(Path(call["cwd"]).iterdir())  # empty sandbox
+    cwd = Path(call["cwd"])
+    assert cwd == tmp_path / "sandbox" / "run" / "uffici" and not any(cwd.iterdir())  # empty, outside the run
     argv = call["argv"]
     assert Path(argv[argv.index("--system-prompt-file") + 1]).read_text(encoding="utf-8") == "SISTEMA"
     assert argv[argv.index("--model") + 1] == "sonnet"
+    stream = agent.workdir / "uffici" / "w03_stream.jsonl"
+    assert '"subtype": "init"' in stream.read_text(encoding="utf-8")   # raw transcript kept
+
+
+def test_relative_workdir_still_finds_prompt_files(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("FAKE_CLAUDE_MODE", "ok")
+    a = ClaudeAgent(ClaudeSettings(executable=[sys.executable, str(FAKE)], sandbox_root=tmp_path / "sb"),
+                    Path("out") / "agents")
+    assert a.turn("uffici", 1, "s", "b", "http://x").text == "Ho controllato i conti."
 
 
 def test_usage_limit_is_detected(agent, monkeypatch):

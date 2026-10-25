@@ -14,6 +14,10 @@ if os.environ.get("FAKE_CLAUDE_LOG"):
     with open(os.environ["FAKE_CLAUDE_LOG"], "w", encoding="utf-8") as fh:
         json.dump({"argv": argv, "cwd": os.getcwd(), "stdin": prompt}, fh)
 
+for flag in ("--system-prompt-file", "--mcp-config"):
+    if not os.path.exists(argv[argv.index(flag) + 1]):  # resolved against cwd, like claude
+        print(f"Error: file not found: {argv[argv.index(flag) + 1]}", file=sys.stderr)
+        sys.exit(1)
 tools = argv[argv.index("--allowedTools") + 1].split(",")
 if mode == "leaky":
     tools = tools + ["Bash", "mcp__gmail__send"]
