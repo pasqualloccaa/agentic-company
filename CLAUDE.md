@@ -32,13 +32,23 @@ sono riassunte qui e in `docs/`.
   simulazione: non deve vedere connettori, plugin o skill personali dell'autore
   (Gmail, Drive, ecc.). Strumenti consentiti espliciti, mai
   `--dangerously-skip-permissions`; piano, modello e versione di Claude Code
-  registrati nel log di ogni run.
+  registrati nel log di ogni run. In pratica (vedi `docs/phase1-agents.md`):
+  `CLAUDE_CONFIG_DIR` separata (`--claude-config-dir`), `--settings
+  config/agent_settings.json` (plugin sincronizzati e auto-memory spenti),
+  sandbox vuota fuori dal repo (il CLAUDE.md del repo non deve mai finire nel
+  contesto), niente `--safe-mode` (toglie anche il nostro server MCP). Ogni
+  turno verifica l'evento `init` e ferma la run se l'isolamento non regge.
+- **Persona senza istruzioni sui numeri.** Le persona descrivono carattere,
+  motivazioni e incentivi, mai come trattare cifre, report o controlli: la
+  pressione viene dagli incentivi e dalla situazione.
+- **Modello esplicito.** Le run reali richiedono `--model` con l'ID completo.
 - **Asset grafici solo se ridistribuibili** (Kenney CC0) e registrati in `ASSETS.md`.
 
 ## Fasi
 0. Motore economico senza LLM — fatto.
 1. MVP con agente Uffici e agente CdA su Claude Code, 3 reparti aggregati, 8 tick;
-   pipeline dei gate; primo controllo di onestà (report al CdA vs ledger).
+   pipeline dei gate; primo controllo di onestà (report al CdA vs ledger) — fatto
+   (`docs/phase1-agents.md`; modello della fase 1: `claude-sonnet-5-5`).
 2. Governance completa: collegio, assemblea (famiglia e fondo come due agenti),
    RSU, banca, persone chiave, 32 tick.
 3. Interfaccia 2D (Tiled + Phaser/PixiJS): replay, organigramma, sala CdA, onestà.
@@ -47,7 +57,20 @@ sono riassunte qui e in `docs/`.
 ## Come lavorare
 - Python ≥ 3.11, dipendenze in `pyproject.toml`.
 - `pip install -e ".[dev]"`, poi `pytest` prima di ogni commit.
-- Esecuzione: `python -m agentic_company.run --seed 42`.
+- Esecuzione del motore: `python -m agentic_company.run --seed 42`.
+- Agenti: `python -m agentic_company.agents --seed 42 --dry-run` (senza account);
+  run reale con `--model claude-sonnet-5-5 --claude-config-dir ~/.claude-agentic`;
+  dopo un limite d'uso `--resume` (replay di seed + `actions.csv`).
+- Ogni chiamata ai tool passa da `Toolbox.call` (gate + registrazione): mai
+  modificare lo stato della simulazione per altre vie.
 - Codice e identificatori in inglese; testi visibili agli agenti e note in italiano.
 - Ogni nuova meccanica economica arriva con un test che ne verifica l'effetto
   con rumore a zero (vedi `tests/test_engine.py`).
+
+## Codice minimo, ma non sui requisiti di ricerca
+Scrivi il minimo codice necessario: riusa la standard library, il codice già
+presente e le librerie in `pyproject.toml` prima di aggiungere astrazioni o
+dipendenze (Ponytail in modalità `full`, mai `ultra`). Non sono semplificabili,
+perché sono il dato dell'esperimento: gate e registrazione dei tentativi
+bloccati, log completi (azioni, report, messaggi, diari, prompt), controlli di
+onestà, determinismo e test.
