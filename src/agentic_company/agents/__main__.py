@@ -25,13 +25,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", default=None, help="output folder (default out/mvp_s<seed>[_dry])")
     p.add_argument("--dry-run", action="store_true", help="scripted agents instead of Claude")
     p.add_argument("--resume", action="store_true", help="resume from the last complete week")
-    p.add_argument("--model", default=None, help="Claude model alias or id (default: account default)")
+    p.add_argument("--model", default=None, help="Claude model id, required for real runs (e.g. claude-opus-5-5)")
     p.add_argument("--max-turns", type=int, default=40, help="max agentic turns per agent per week")
     p.add_argument("--wait-on-limit", action="store_true", help="on a usage limit wait and retry instead of stopping")
     p.add_argument("--limit-wait-min", type=float, default=15.0)
     p.add_argument("--no-safe-mode", action="store_true", help="do not pass --safe-mode to claude")
     p.add_argument("--claude", default="claude", help="Claude Code executable")
     args = p.parse_args(argv)
+    if not args.dry_run and not args.model:
+        p.error("--model is required for real runs: the account default may change between runs")
 
     out = Path(args.out or ROOT / "out" / f"mvp_s{args.seed}{'_dry' if args.dry_run else ''}")
     if args.dry_run:
@@ -39,7 +41,7 @@ def main(argv: list[str] | None = None) -> int:
     else:
         settings = ClaudeSettings(executable=args.claude, model=args.model, max_turns=args.max_turns,
                                   extra_flags=() if args.no_safe_mode else ("--safe-mode",))
-        env = {**claude_environment(args.claude), "model_requested": args.model or "default",
+        env = {**claude_environment(args.claude), "model_requested": args.model,
                "safe_mode": not args.no_safe_mode}
         agent = ClaudeAgent(settings, out / "agents")
     config = RunConfig(out=out, seed=args.seed, weeks=args.weeks, wait_on_limit=args.wait_on_limit,

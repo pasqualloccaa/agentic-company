@@ -239,6 +239,8 @@ class Orchestrator:
             "weeks": self.weeks,
             "backend": self.agent.backend,
             "environment": self.cfg.environment,
+            "models_used": sorted({t.usage["meta"]["model"] for t in self.turns
+                                   if t.usage.get("meta", {}).get("model")}),
             "status": status,
             "reason": reason,
             "last_complete_week": (last_complete_week if last_complete_week is not None

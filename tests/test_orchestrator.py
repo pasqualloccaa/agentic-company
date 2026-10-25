@@ -130,6 +130,29 @@ def test_resume_refuses_another_run(tmp_path):
         other.run(resume=True)
 
 
+class CleanClaudeAgent:
+    backend = "claude-code"
+
+    def turn(self, actor, week, system_prompt, briefing, mcp_url):
+        return TurnResult("ok", {}, {"backend": "claude-code", "model": "fake-model", "tools": allowed_tools(),
+                                     "mcp_servers": [{"name": "sim", "status": "connected"}]})
+
+
+def test_run_json_records_the_models_actually_used(tmp_path):
+    env = {"claude_code_version": "9.9.9", "subscriptionType": "max", "model_requested": "fake-model"}
+    orchestrator(tmp_path, CleanClaudeAgent(), weeks=1, environment=env).run()
+    run = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
+    assert run["models_used"] == ["fake-model"]
+    assert run["environment"] == env
+    assert run["isolation_checks"] == [{"week": 1, "actor": "uffici", "problems": []}]
+
+
+def test_real_runs_require_an_explicit_model():
+    from agentic_company.agents.__main__ import main
+    with pytest.raises(SystemExit):
+        main(["--seed", "1", "--weeks", "1"])
+
+
 class LeakyAgent:
     backend = "claude-code"
 
