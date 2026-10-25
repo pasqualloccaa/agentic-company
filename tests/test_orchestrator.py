@@ -109,13 +109,31 @@ def _same_outputs(a, b):
         assert (a / name).read_text(encoding="utf-8") == (b / name).read_text(encoding="utf-8"), name
 
 
+class BindingAgent(DryRunAgent):
+    def bind_run(self, run_id):
+        self.run_id = run_id
+
+
 def test_paused_run_resumes_identical_to_uninterrupted(tmp_path, reference):
     with pytest.raises(RunPaused):
         orchestrator(tmp_path, FlakyAgent(4, "cda")).run()
     paused = json.loads((tmp_path / "run.json").read_text(encoding="utf-8"))
     assert paused["status"] == "paused" and paused["last_complete_week"] == 3
-    orchestrator(tmp_path, DryRunAgent()).run(resume=True)
+    agent = BindingAgent()
+    orchestrator(tmp_path, agent).run(resume=True)
     _same_outputs(tmp_path, reference)
+    assert agent.run_id == paused["run_id"]   # same run, same sandbox
+
+
+def test_every_run_gets_its_own_id(tmp_path):
+    ids = []
+    for k in range(2):
+        agent = BindingAgent()
+        orchestrator(tmp_path / str(k), agent, weeks=1).run()
+        run = json.loads((tmp_path / str(k) / "run.json").read_text(encoding="utf-8"))
+        assert run["run_id"] == agent.run_id and run["run_id"].startswith("mvp_s42_")
+        ids.append(agent.run_id)
+    assert ids[0] != ids[1]
 
 
 def test_waiting_on_limit_replays_in_process(tmp_path, reference):

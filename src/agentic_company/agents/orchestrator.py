@@ -12,6 +12,7 @@ from __future__ import annotations
 import csv
 import json
 import time
+import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -80,6 +81,7 @@ class Orchestrator:
         self.host: SimulationHost | None = None
         self.started_at = datetime.now(timezone.utc).isoformat(timespec="seconds")
         self.isolation: list[dict[str, Any]] = []
+        self.run_id = ""
         self._fresh()
 
     # ------------------------------------------------------------------ state
@@ -133,10 +135,15 @@ class Orchestrator:
         self.out.mkdir(parents=True, exist_ok=True)
         if resume:
             start = self.restore()
+            self.run_id = json.loads((self.out / "run.json").read_text(encoding="utf-8"))["run_id"]
         else:
             (self.out / "run.json").unlink(missing_ok=True)
             start = 0
             self._fresh()
+            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+            self.run_id = f"{self.scenario['name']}_s{self.cfg.seed}_{stamp}_{uuid.uuid4().hex[:6]}"
+        if hasattr(self.agent, "bind_run"):
+            self.agent.bind_run(self.run_id)  # type: ignore[attr-defined]
         host = self.host = SimulationHost(self.tb, ACTORS)
         host.start()
         waits = 0
@@ -233,6 +240,7 @@ class Orchestrator:
         path = self.out / "run.json"
         previous = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
         data = {
+            "run_id": self.run_id,
             "seed": self.cfg.seed,
             "scenario": self.scenario["name"],
             "company": Path(self.cfg.company).name,

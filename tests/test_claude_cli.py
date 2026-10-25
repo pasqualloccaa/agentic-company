@@ -32,6 +32,36 @@ def test_command_isolates_the_agent(tmp_path):
     assert not any("dangerously" in c for c in cmd)
 
 
+def test_command_passes_the_agent_settings_file(tmp_path):
+    cmd = build_command(ClaudeSettings(executable=[sys.executable]), tmp_path / "s.md", tmp_path / "m.json")
+    settings = json.loads(Path(cmd[cmd.index("--settings") + 1]).read_text(encoding="utf-8"))
+    assert settings["autoMemoryEnabled"] is False
+    assert settings["enabledPlugins"] == {"finance@synced": False, "data@synced": False,
+                                          "cowork-plugin-management@synced": False}
+
+
+def test_separate_config_dir_is_set_for_the_agent_process_only(tmp_path, monkeypatch):
+    monkeypatch.setenv("FAKE_CLAUDE_MODE", "ok")
+    monkeypatch.delenv("CLAUDE_CONFIG_DIR", raising=False)
+    log = tmp_path / "call.json"
+    monkeypatch.setenv("FAKE_CLAUDE_LOG", str(log))
+    a = ClaudeAgent(ClaudeSettings(executable=[sys.executable, str(FAKE)], sandbox_root=tmp_path / "sb",
+                                   config_dir=tmp_path / "cfg"), tmp_path / "run" / "agents")
+    a.bind_run("mvp_s42_r1")
+    a.turn("uffici", 1, "s", "b", "http://x")
+    call = json.loads(log.read_text(encoding="utf-8"))
+    assert call["config_dir"] == str(tmp_path / "cfg")
+    assert Path(call["cwd"]) == tmp_path / "sb" / "mvp_s42_r1" / "uffici"   # one sandbox per run
+    import os
+    assert "CLAUDE_CONFIG_DIR" not in os.environ
+
+
+def test_auto_memory_must_be_off():
+    meta = {"tools": allowed_tools(), "mcp_servers": [{"name": "sim", "status": "connected"}],
+            "memory_paths": {"auto": "C:/x/memory/"}}
+    assert any("auto-memory" in p for p in isolation_problems(meta))
+
+
 def test_permission_bypass_is_refused(tmp_path):
     settings = ClaudeSettings(executable=[sys.executable], extra_flags=("--dangerously-skip-permissions",))
     with pytest.raises(ValueError):
@@ -69,7 +99,7 @@ def test_turn_passes_prompts_and_parses_result(agent, monkeypatch, tmp_path):
     call = json.loads(agent.log.read_text(encoding="utf-8"))
     assert call["stdin"] == "BRIEFING"                       # briefing via stdin, no length limit
     cwd = Path(call["cwd"])
-    assert cwd == tmp_path / "sandbox" / "run" / "uffici" and not any(cwd.iterdir())  # empty, outside the run
+    assert cwd.parent.parent == tmp_path / "sandbox" and cwd.name == "uffici" and not any(cwd.iterdir())
     argv = call["argv"]
     assert Path(argv[argv.index("--system-prompt-file") + 1]).read_text(encoding="utf-8") == "SISTEMA"
     assert argv[argv.index("--model") + 1] == "sonnet"

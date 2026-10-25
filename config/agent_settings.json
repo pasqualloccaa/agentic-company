@@ -1,0 +1,8 @@
+{
+  "enabledPlugins": {
+    "finance@synced": false,
+    "data@synced": false,
+    "cowork-plugin-management@synced": false
+  },
+  "autoMemoryEnabled": false
+}

@@ -13,6 +13,7 @@ runner can pause and resume.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -21,6 +22,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..engine import ROOT
 from ..tools import TOOLS
 
 SERVER_NAME = "sim"
@@ -55,6 +57,10 @@ class ClaudeSettings:
     extra_flags: tuple[str, ...] = ()   # not --safe-mode: it also drops the --mcp-config server
     # working directories live outside the repo: Claude Code reads every CLAUDE.md above its cwd
     sandbox_root: Path = Path(tempfile.gettempdir()) / "agentic-company-sandbox"
+    # separate CLAUDE_CONFIG_DIR: no personal plugins, hooks, agents or memory of the author
+    config_dir: Path | None = None
+    # disables the plugins synced from claude.ai and auto-memory
+    settings_file: Path = ROOT / "config" / "agent_settings.json"
 
 
 def allowed_tools() -> list[str]:
@@ -85,6 +91,7 @@ def build_command(settings: ClaudeSettings, system_prompt_file: Path, mcp_config
         "--disable-slash-commands",
         "--no-session-persistence",
         "--max-turns", str(settings.max_turns),
+        "--settings", str(Path(settings.settings_file).resolve()),
         *settings.extra_flags,
     ]
     if settings.model:
@@ -144,6 +151,8 @@ def isolation_problems(meta: dict[str, Any]) -> list[str]:
     plugins = [p.get("name") for p in meta.get("plugins") or [] if p.get("path") != "builtin"]
     if plugins:
         problems.append(f"unexpected plugins: {plugins}")
+    if meta.get("memory_paths"):
+        problems.append(f"auto-memory is on: {meta['memory_paths']}")
     if meta.get("permission_denials"):
         problems.append(f"permission denials: {meta['permission_denials']}")
     return problems
@@ -156,15 +165,27 @@ def memory_files_above(folder: Path) -> list[Path]:
     return [f for f in found if f.parent != Path.home() / ".claude"]   # user memory: see CLAUDE_CONFIG_DIR
 
 
-def claude_environment(executable: str | list[str] = "claude") -> dict[str, Any]:
-    """Version and plan of the Claude Code installation (never the account email)."""
+def process_env(config_dir: Path | None) -> dict[str, str]:
+    """Environment of the agent process; the caller's environment is left untouched."""
+    env = dict(os.environ)
+    if config_dir is not None:
+        env["CLAUDE_CONFIG_DIR"] = str(Path(config_dir).resolve())
+    return env
+
+
+def claude_environment(executable: str | list[str] = "claude", config_dir: Path | None = None) -> dict[str, Any]:
+    """Version and plan of the Claude Code installation the agents use (never the account email)."""
     exe = _executable(executable)
-    env: dict[str, Any] = {}
+    env: dict[str, Any] = {"separate_config_dir": config_dir is not None}
+    penv = process_env(config_dir)
+
+    def run(*args: str) -> str:
+        return subprocess.run(exe + list(args), capture_output=True, text=True, encoding="utf-8",
+                              timeout=60, env=penv).stdout
+
     try:
-        env["claude_code_version"] = subprocess.run(exe + ["--version"], capture_output=True, text=True,
-                                                    encoding="utf-8", timeout=60).stdout.strip()
-        status = json.loads(subprocess.run(exe + ["auth", "status", "--json"], capture_output=True, text=True,
-                                           encoding="utf-8", timeout=60).stdout)
+        env["claude_code_version"] = run("--version").strip()
+        status = json.loads(run("auth", "status", "--json"))
         env.update({k: status.get(k) for k in ("subscriptionType", "authMethod", "apiProvider")})
     except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
         env["error"] = f"{type(exc).__name__}: {exc}"
@@ -177,11 +198,16 @@ class ClaudeAgent:
     def __init__(self, settings: ClaudeSettings, workdir: Path):
         self.settings = settings
         self.workdir = workdir
+        self.run_id = workdir.resolve().parent.name
+
+    def bind_run(self, run_id: str) -> None:
+        """One sandbox per run, so nothing Claude Code keeps per folder is shared across runs."""
+        self.run_id = run_id
 
     def turn(self, actor: str, week: int, system_prompt: str, briefing: str, mcp_url: str) -> TurnResult:
         base = (self.workdir / actor).resolve()   # claude runs in the sandbox: paths must be absolute
         base.mkdir(parents=True, exist_ok=True)
-        sandbox = self.settings.sandbox_root / self.workdir.resolve().parent.name / actor   # empty cwd
+        sandbox = self.settings.sandbox_root / self.run_id / actor   # empty cwd
         sandbox.mkdir(parents=True, exist_ok=True)
         leaks = memory_files_above(sandbox)
         if leaks or any(sandbox.iterdir()):
@@ -192,7 +218,8 @@ class ClaudeAgent:
         cmd = build_command(self.settings, system_file, config_file)
         try:
             proc = subprocess.run(cmd, input=briefing, capture_output=True, text=True, encoding="utf-8",
-                                  cwd=sandbox, timeout=self.settings.timeout_s)
+                                  cwd=sandbox, timeout=self.settings.timeout_s,
+                                  env=process_env(self.settings.config_dir))
         except subprocess.TimeoutExpired as exc:
             raise AgentError(f"{actor} week {week}: claude timed out after {exc.timeout}s") from exc
         (base / f"w{week:02d}_stream.jsonl").write_text(proc.stdout, encoding="utf-8")  # full transcript
@@ -214,6 +241,7 @@ class ClaudeAgent:
             "skills": init.get("skills"),
             "plugins": init.get("plugins"),
             "agents": init.get("agents"),
+            "memory_paths": init.get("memory_paths"),
             "subtype": result.get("subtype"),
             "num_turns": result.get("num_turns"),
             "duration_ms": result.get("duration_ms"),

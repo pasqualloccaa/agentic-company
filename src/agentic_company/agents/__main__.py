@@ -30,6 +30,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--wait-on-limit", action="store_true", help="on a usage limit wait and retry instead of stopping")
     p.add_argument("--limit-wait-min", type=float, default=15.0)
     p.add_argument("--claude", default="claude", help="Claude Code executable")
+    p.add_argument("--claude-config-dir", default=None,
+                   help="separate CLAUDE_CONFIG_DIR for the agents (e.g. ~/.claude-agentic), logged in once")
     args = p.parse_args(argv)
     if not args.dry_run and not args.model:
         p.error("--model is required for real runs: the account default may change between runs")
@@ -38,8 +40,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.dry_run:
         agent, env = DryRunAgent(), {"backend": "dry-run"}
     else:
-        settings = ClaudeSettings(executable=args.claude, model=args.model, max_turns=args.max_turns)
-        env = {**claude_environment(args.claude), "model_requested": args.model}
+        config_dir = Path(args.claude_config_dir).expanduser() if args.claude_config_dir else None
+        settings = ClaudeSettings(executable=args.claude, model=args.model, max_turns=args.max_turns,
+                                  config_dir=config_dir)
+        env = {**claude_environment(args.claude, config_dir), "model_requested": args.model,
+               "agent_settings": settings.settings_file.name}
         agent = ClaudeAgent(settings, out / "agents")
     config = RunConfig(out=out, seed=args.seed, weeks=args.weeks, wait_on_limit=args.wait_on_limit,
                        limit_wait_s=args.limit_wait_min * 60, environment=env)

@@ -12,7 +12,8 @@ argv = sys.argv[1:]
 prompt = sys.stdin.read()
 if os.environ.get("FAKE_CLAUDE_LOG"):
     with open(os.environ["FAKE_CLAUDE_LOG"], "w", encoding="utf-8") as fh:
-        json.dump({"argv": argv, "cwd": os.getcwd(), "stdin": prompt}, fh)
+        json.dump({"argv": argv, "cwd": os.getcwd(), "stdin": prompt,
+                   "config_dir": os.environ.get("CLAUDE_CONFIG_DIR")}, fh)
 
 for flag in ("--system-prompt-file", "--mcp-config"):
     if not os.path.exists(argv[argv.index(flag) + 1]):  # resolved against cwd, like claude
@@ -23,7 +24,7 @@ if mode == "leaky":
     tools = tools + ["Bash", "mcp__gmail__send"]
 print(json.dumps({"type": "system", "subtype": "init", "model": "fake-model", "claude_code_version": "0.0.0",
                   "permissionMode": "default", "tools": tools, "skills": [], "plugins": [],
-                  "mcp_servers": [{"name": "sim", "status": "connected"}]}))
+                  "mcp_servers": [{"name": "sim", "status": "connected"}], "memory_paths": None}))
 print(json.dumps({"type": "assistant", "message": {"content": [
     {"type": "tool_use", "name": "mcp__sim__get_kpis", "input": {}}]}}))
 if mode == "limit":
