@@ -110,6 +110,7 @@ class Governance:
         self.diaries: list[DiaryEntry] = []
         self.price_ref: dict[str, float] = {}
         self.queued: list[Action] = []
+        self.claims: list[Any] = []     # honesty.Claim, filled when reports and announcements are made
 
     # ------------------------------------------------------------------ log
     def record(self, action: Action, result: GateResult, item_id: int | None = None) -> Attempt:
