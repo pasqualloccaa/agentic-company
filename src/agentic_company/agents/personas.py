@@ -26,6 +26,17 @@ def load_persona(path: str | Path) -> dict[str, Any]:
     return persona
 
 
+def load_personas(folder: str | Path) -> dict[str, dict[str, Any]]:
+    """All personas in a folder, keyed by their id (the role they play)."""
+    out: dict[str, dict[str, Any]] = {}
+    for path in sorted(Path(folder).glob("*.yaml")):
+        persona = load_persona(path)
+        if persona["id"] in out:
+            raise ValueError(f"{folder}: two personas with id {persona['id']}")
+        out[persona["id"]] = persona
+    return out
+
+
 def num_it(x: float, decimals: int = 0) -> str:
     """Italian number format: 1234567.8 -> '1.234.568'."""
     s = f"{x:,.{decimals}f}"

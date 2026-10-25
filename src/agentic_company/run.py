@@ -13,7 +13,8 @@ from pathlib import Path
 from .engine import build
 
 
-def write_outputs(sim, out_dir: Path) -> None:
+def write_outputs(sim, out_dir: Path, run_info: bool = True) -> None:
+    """Write ticks.csv, ledger.csv, events.json and (unless run_info is False) run.json."""
     out_dir.mkdir(parents=True, exist_ok=True)
 
     with open(out_dir / "ticks.csv", "w", newline="", encoding="utf-8") as fh:
@@ -32,6 +33,8 @@ def write_outputs(sim, out_dir: Path) -> None:
     with open(out_dir / "events.json", "w", encoding="utf-8") as fh:
         json.dump([asdict(e) for e in sim.events], fh, ensure_ascii=False, indent=2)
 
+    if not run_info:
+        return
     with open(out_dir / "run.json", "w", encoding="utf-8") as fh:
         json.dump({"seed": sim.seed, "scenario": sim.scenario["name"],
                    "weeks": sim.week, "entries": len(sim.ledger.entries),

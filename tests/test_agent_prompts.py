@@ -97,6 +97,9 @@ def test_uffici_briefing_lists_open_agenda_and_new_minutes(tb):
     text = uffici_briefing(tb.sim, tb.gov, turns, 12_000, next_meeting=8)
     assert "punto 1 approvato: Serve" in text
     assert "Punto 2" in text and "Beta" in text and "Punto 1 (" not in text
+    tb.advance()  # a week later the decision is still remembered
+    later = uffici_briefing(tb.sim, tb.gov, turns, 12_000, next_meeting=8)
+    assert "## Decisioni del CdA finora\n- Settimana 4, punto 1 approvato: Serve" in later
 
 
 def test_diary_is_trimmed_oldest_first_within_budget(tb):

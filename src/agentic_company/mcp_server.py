@@ -107,6 +107,11 @@ class SimulationHost:
         self._uvicorn: list[uvicorn.Server] = []
         self._threads: list[threading.Thread] = []
 
+    def set_toolbox(self, toolbox: Toolbox) -> None:
+        """Point every endpoint at a rebuilt state (after a replay)."""
+        for server in self.servers.values():
+            server.toolbox = toolbox
+
     def url(self, actor: str) -> str:
         return f"http://127.0.0.1:{self.ports[actor]}/mcp"
 

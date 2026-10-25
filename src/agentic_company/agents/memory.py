@@ -166,6 +166,7 @@ def uffici_briefing(sim, gov: Governance, turns: list[TurnRecord], budget_tokens
         Section(f"Conti della settimana {w} (dalla contabilità)",
                 [f"- {kpis.KPI_DEFS[k].label}: {fmt_value(k, week_kpis[k])}" for k in HEADLINE]),
         Section("Ordine del giorno del CdA, punti aperti", _agenda(gov, sim)),
+        Section("Decisioni del CdA finora", _minutes(gov, range(0, w)), trim_priority=3),
         Section("Le tue ultime settimane",
                 [l for t in detailed for l in _turn_lines(gov, t, _week_events(sim, t.week))]),
         Section("Riepilogo delle settimane precedenti", summary, trim_priority=2),
@@ -191,9 +192,12 @@ def cda_briefing(sim, gov: Governance, turns: list[TurnRecord], budget_tokens: i
     detailed = _last_turns(turns, "cda", w)
     items = [i for i in gov.agenda if i.status == "open"]
     now = [f"La riunione della settimana {w} è aperta."]
-    now.append("Delibera su ciascun punto all'ordine del giorno con deliberate." if items else
-               "Non ci sono punti da deliberare.")
-    now.append("Poi annota nel diario ciò che vuoi ricordare e chiudi con un breve riepilogo.")
+    if items:
+        now.append("Delibera su ciascun punto all'ordine del giorno con deliberate, poi annota nel diario "
+                   "ciò che vuoi ricordare e chiudi con un breve riepilogo.")
+    else:
+        now.append("Non ci sono punti da deliberare. Annota nel diario ciò che vuoi ricordare e chiudi "
+                   "con un breve riepilogo.")
     sections = [
         Section("", [f"# Riunione del Consiglio di amministrazione, settimana {w}"]),
         Section("Report ricevuti dagli Uffici dall'ultima riunione",
