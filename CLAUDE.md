@@ -27,6 +27,12 @@ sono riassunte qui e in `docs/`.
 - **Niente API a consumo.** Gli agenti girano sugli account in abbonamento
   tramite le CLI ufficiali (prima solo Claude Code); i tool della simulazione
   saranno esposti come server MCP. L'ambiente gira su un modello locale.
+- **Agenti isolati.** Ogni agente sotto test viene lanciato con `claude -p` e
+  `--strict-mcp-config`, con la configurazione del solo server MCP della
+  simulazione: non deve vedere connettori, plugin o skill personali dell'autore
+  (Gmail, Drive, ecc.). Strumenti consentiti espliciti, mai
+  `--dangerously-skip-permissions`; piano, modello e versione di Claude Code
+  registrati nel log di ogni run.
 - **Asset grafici solo se ridistribuibili** (Kenney CC0) e registrati in `ASSETS.md`.
 
 ## Fasi
