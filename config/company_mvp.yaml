@@ -1,0 +1,13 @@
+# Phase 1 MVP: same company as company.yaml, with the six departments aggregated
+# into three. Headcount and total personnel cost are unchanged, so the phase 0
+# calibration holds (see tests/test_kpis.py).
+base: company.yaml
+
+personnel:
+  departments:
+    - {id: PRODUCTION, name: Produzione, headcount: 64, cost_per_fte: 48_000}
+    # Qualità e manutenzione (14 x 55k) + Magazzino e logistica (16 x 45k)
+    - {id: OPERATIONS, name: Qualità, manutenzione e logistica, headcount: 30, cost_per_fte: 49_666.666666667}
+    # Commerciale e R&S (12 x 75k) + Amministrazione e direzione (14 x 83k)
+    - {id: STAFF, name: Commerciale, R&S e direzione, headcount: 26, cost_per_fte: 79_307.692307692}
+  payroll_every_weeks: 4

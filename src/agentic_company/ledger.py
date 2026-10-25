@@ -42,6 +42,11 @@ class UnbalancedEntryError(ValueError):
     pass
 
 
+def _natural(account: str, raw: float) -> float:
+    kind = CHART[account][0]
+    return raw if kind in (AccountType.ASSET, AccountType.EXPENSE) else -raw
+
+
 @dataclass(frozen=True)
 class Line:
     account: str
@@ -92,9 +97,15 @@ class Ledger:
     def balance(self, account: str) -> float:
         """Natural-sign balance: positive for assets/expenses (debit) and for
         liabilities/equity/revenue (credit)."""
-        raw = self._balances[account]
-        kind = CHART[account][0]
-        return raw if kind in (AccountType.ASSET, AccountType.EXPENSE) else -raw
+        return _natural(account, self._balances[account])
+
+    def balance_at(self, account: str, week: int) -> float:
+        """Natural-sign balance at the end of a past week, rebuilt from the entries."""
+        if account not in CHART:
+            raise KeyError(f"Unknown account: {account}")
+        raw = sum(line.debit - line.credit for e in self.entries if e.week <= week
+                  for line in e.lines if line.account == account)
+        return _natural(account, raw)
 
     def trial_balance(self) -> float:
         """Sum of all raw balances; zero when the books are consistent."""
@@ -102,10 +113,14 @@ class Ledger:
 
     def flows(self, week: int) -> dict[str, float]:
         """Natural-sign movement of each P&L account during one week."""
+        return self.flows_between(week, week)
+
+    def flows_between(self, first: int, last: int) -> dict[str, float]:
+        """Natural-sign movement of each P&L account from week `first` to `last` included."""
         out = {a: 0.0 for a, (k, _) in CHART.items()
                if k in (AccountType.REVENUE, AccountType.EXPENSE)}
         for entry in self.entries:
-            if entry.week != week:
+            if not first <= entry.week <= last:
                 continue
             for line in entry.lines:
                 if line.account in out:

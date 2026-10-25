@@ -14,6 +14,7 @@ from typing import Any, Protocol
 
 import yaml
 
+from .kpis import baseline_weekly_ebitda
 from .ledger import EBITDA_EXPENSES, Ledger, Line
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -22,6 +23,22 @@ ROOT = Path(__file__).resolve().parents[2]
 def load_yaml(path: str | Path) -> dict[str, Any]:
     with open(path, encoding="utf-8") as fh:
         return yaml.safe_load(fh)
+
+
+def _merge(base: dict[str, Any], over: dict[str, Any]) -> dict[str, Any]:
+    out = dict(base)
+    for key, value in over.items():
+        out[key] = _merge(out[key], value) if isinstance(value, dict) and isinstance(out.get(key), dict) else value
+    return out
+
+
+def load_config(path: str | Path) -> dict[str, Any]:
+    """Load a YAML config; a top-level `base: other.yaml` is loaded first and
+    overridden key by key (lists are replaced, not merged)."""
+    path = Path(path)
+    data = load_yaml(path)
+    base = data.pop("base", None)
+    return _merge(load_config(path.parent / base), data) if base else data
 
 
 # --------------------------------------------------------------------------- actions
@@ -93,9 +110,7 @@ class Simulation:
         self.collections: dict[int, float] = defaultdict(float)
         self.supplier_payments: dict[int, float] = defaultdict(float)
 
-        baseline_ebitda = (rev["annual"] * (1 - costs["materials_share_of_revenue"])
-                           - costs["other_opex_annual"] - self.annual_personnel_cost()) / w
-        self.ebitda_ltm = deque([baseline_ebitda] * w, maxlen=w)
+        self.ebitda_ltm = deque([baseline_weekly_ebitda(company)] * w, maxlen=w)
 
         self._open_books()
 
@@ -172,8 +187,28 @@ class Simulation:
             cid, pct = action.params["customer"], action.params["pct"]
             self.price_mult[cid] *= 1 + pct
             self.log("action", f"Prezzo {cid} {pct:+.1%}", actor=action.actor, **action.params)
+        elif action.kind == "spend":
+            self._spend(action)
         else:
-            raise ValueError(f"Unsupported action in phase 0: {action.kind}")
+            raise ValueError(f"Unsupported action: {action.kind}")
+
+    def _spend(self, action: Action) -> None:
+        """Opex hits the P&L now; capex is capitalised and depreciated straight-line.
+        Both are invoiced now and paid after the payable period."""
+        p, w = action.params, self.week
+        amount = round(float(p["amount"]), 2)
+        if p["category"] == "opex":
+            self.ledger.transfer(w, f"Spesa: {p['description']}", "other_opex", "payables",
+                                 amount, origin=action.actor)
+        elif p["category"] == "capex":
+            self.ledger.transfer(w, f"Investimento: {p['description']}", "fixed_assets", "payables",
+                                 amount, origin=action.actor)
+            self.depr_weekly += amount / (p.get("useful_life_years", 10) * self.wpy)
+        else:
+            raise ValueError(f"Unknown spend category: {p['category']}")
+        self.supplier_payments[w + self.cfg["working_capital"]["payable_weeks"]] += amount
+        self.log("action", f"Spesa {p['category']} {amount:,.0f} EUR: {p['description']}",
+                 actor=action.actor, **p)
 
     # ------------------------------------------------------------------ tick
     def step(self) -> dict[str, Any]:
@@ -285,6 +320,6 @@ class Simulation:
 def build(seed: int = 42, policy: Policy | None = None,
           company_path: str | Path | None = None,
           scenario_path: str | Path | None = None) -> Simulation:
-    company = load_yaml(company_path or ROOT / "config" / "company.yaml")
-    scenario = load_yaml(scenario_path or ROOT / "config" / "scenario_base.yaml")
+    company = load_config(company_path or ROOT / "config" / "company.yaml")
+    scenario = load_config(scenario_path or ROOT / "config" / "scenario_base.yaml")
     return Simulation(company, scenario, policy, seed)
