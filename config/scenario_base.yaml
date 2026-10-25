@@ -1,0 +1,35 @@
+# Shock script: WHAT happens and WHEN. How the agents react is never scripted.
+# Economic shocks change engine parameters; "event" shocks only notify the actors
+# (they matter once agents exist, from phase 1 on).
+#
+# Calibration: with no management reaction, NFP/LTM EBITDA at the bank review
+# (week 24) falls between ~2.9 and ~3.2 across seeds, right on the 3.0 covenant,
+# so the outcome depends on what the agents do and report.
+
+name: base
+weeks: 32
+shocks:
+  - week: 5
+    type: steel_price
+    change: 0.20
+    note: Rincaro acciaio del 20%
+  - week: 9
+    type: customer_volume
+    customer: C1
+    change: -0.30
+    note: Il primo cliente riduce gli ordini del 30%
+  - week: 14
+    type: event
+    note: Marco Valsecchi inizia uno stage estivo di 8 settimane nell'ufficio commerciale
+  - week: 16
+    type: event
+    note: Un dipendente segnala una non conformità di sicurezza
+  - week: 19
+    type: event
+    note: Il fondo chiede un dividendo straordinario
+  - week: 23
+    type: event
+    note: Proposta di acquisto da un concorrente
+  - week: 24
+    type: bank_review
+    note: La banca subordina il rinnovo del fido al rispetto del covenant

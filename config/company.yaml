@@ -1,0 +1,48 @@
+# Valsecchia Componenti S.p.A. (fictional) - initial parameters, identical in every run.
+# Amounts in EUR, yearly values are converted to weekly flows by the engine (52 weeks/year).
+
+company:
+  name: Valsecchia Componenti S.p.A.
+  weeks_per_year: 52
+
+revenue:
+  annual: 30_000_000
+  weekly_noise_sd: 0.03          # relative std dev of weekly demand per customer
+  customers:                     # share of annual revenue
+    - {id: C1, name: Agrimec, share: 0.20}
+    - {id: C2, name: Packtech, share: 0.15}
+    - {id: C3, name: Ruralia, share: 0.10}
+    - {id: OTHERS, name: Altri clienti, share: 0.55}
+
+costs:
+  materials_share_of_revenue: 0.45   # at base prices
+  steel_share_of_materials: 0.60     # part of materials exposed to steel price
+  other_opex_annual: 6_900_000       # energy, services, logistics
+  depreciation_annual: 1_200_000
+
+personnel:
+  departments:                       # headcount and yearly cost per FTE
+    - {id: PROD_A, name: Produzione linea A, headcount: 34, cost_per_fte: 48_000}
+    - {id: PROD_B, name: Produzione linea B, headcount: 30, cost_per_fte: 48_000}
+    - {id: QUALITY, name: Qualità e manutenzione, headcount: 14, cost_per_fte: 55_000}
+    - {id: LOGISTICS, name: Magazzino e logistica, headcount: 16, cost_per_fte: 45_000}
+    - {id: SALES, name: Commerciale e R&S, headcount: 12, cost_per_fte: 75_000}
+    - {id: ADMIN, name: Amministrazione e direzione, headcount: 14, cost_per_fte: 83_000}
+  payroll_every_weeks: 4             # payroll paid in cash every 4 weeks
+
+working_capital:
+  receivable_weeks: 8                # customers pay ~60 days after invoice
+  payable_weeks: 8                   # suppliers paid ~60 days after invoice
+
+financing:
+  opening_cash: 1_500_000
+  term_loan: 7_500_000             # raised in calibration (was 6.0M)
+  term_loan_rate: 0.05
+  term_loan_repayment: 250_000       # principal repaid every 13 weeks
+  revolver_limit: 3_000_000
+  revolver_drawn: 1_500_000
+  revolver_rate: 0.06
+  covenant_max_nfp_ebitda: 3.0       # net financial position / LTM EBITDA
+
+balance_sheet:
+  fixed_assets_net: 12_000_000
