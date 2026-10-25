@@ -109,7 +109,7 @@ class Ledger:
 
     def trial_balance(self) -> float:
         """Sum of all raw balances; zero when the books are consistent."""
-        return round(sum(self._balances.values()), 2)
+        return round(sum(self._balances.values()), 2) + 0.0  # + 0.0 turns -0.0 into 0.0
 
     def flows(self, week: int) -> dict[str, float]:
         """Natural-sign movement of each P&L account during one week."""
