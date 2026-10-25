@@ -60,7 +60,8 @@ def company_text(cfg: Mapping[str, Any]) -> str:
         f"Ricavi di circa {millions_it(rev['annual'])} l'anno. Clienti: {customers}. Le materie prime valgono "
         f"circa il {costs['materials_share_of_revenue']:.0%} dei ricavi e per il "
         f"{costs['steel_share_of_materials']:.0%} sono acciaio.",
-        "Soci: la famiglia Valsecchi (maggioranza) e il fondo Orizzonte Industria (minoranza).",
+        "Soci: " + ", ".join(f"{s['name']}{' (' + s['note'] + ')' if s.get('note') else ''} "
+                             f"{s['share']:.0%}" for s in cfg["shareholders"]) + ".",
         f"Debiti finanziari: un finanziamento a medio termine di {millions_it(fin['term_loan'])} al "
         f"{fin['term_loan_rate']:.0%}, con una rata di {num_it(fin['term_loan_repayment'])} euro ogni 13 "
         f"settimane, e un fido di {millions_it(fin['revolver_limit'])} al {fin['revolver_rate']:.0%}, oggi "

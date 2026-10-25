@@ -5,6 +5,14 @@ company:
   name: Valsecchia Componenti S.p.A.
   weeks_per_year: 52
 
+shareholders:                    # descriptive only, not used by the engine
+  - {name: Franco Valsecchi, share: 0.30, note: fondatore}
+  - {name: Elena Valsecchi, share: 0.20}
+  - {name: Giulia Valsecchi, share: 0.10}
+  - {name: Marco Valsecchi, share: 0.05}
+  - {name: Sofia Valsecchi, share: 0.05}
+  - {name: Orizzonte Industria, share: 0.30, note: fondo di private equity}
+
 revenue:
   annual: 30_000_000
   weekly_noise_sd: 0.03          # relative std dev of weekly demand per customer

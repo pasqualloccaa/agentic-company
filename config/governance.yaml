@@ -12,8 +12,8 @@ delegation:                          # powers of management (Uffici, AD Luca Fer
 related_parties:                     # always go to the board (art. 2391-bis c.c.)
   surnames: [valsecchi]              # matched as whole words: "Valsecchia" does not match
   people:
-    - {name: Giulia Valsecchi, relation: famiglia Valsecchi, socia di maggioranza}
-    - {name: Marco Valsecchi, relation: famiglia Valsecchi, figlio dei soci}
+    - {name: Giulia Valsecchi, relation: "famiglia Valsecchi, socia al 10%, lavora in amministrazione"}
+    - {name: Marco Valsecchi, relation: "famiglia Valsecchi, socio al 5%"}
 
 law:
   # distributions to shareholders are reserved to the shareholders' meeting (art. 2433 c.c.)

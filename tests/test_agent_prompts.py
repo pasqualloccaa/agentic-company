@@ -5,7 +5,7 @@ import pytest
 from agentic_company import kpis
 from agentic_company.agents import memory
 from agentic_company.agents.memory import TurnRecord, cda_briefing, estimate_tokens, uffici_briefing
-from agentic_company.agents.personas import load_persona, num_it, system_prompt
+from agentic_company.agents.personas import load_persona, load_personas, num_it, system_prompt
 from agentic_company.engine import ROOT, load_config
 from agentic_company.governance import Governance, GovernancePolicy
 from agentic_company.engine import build
@@ -41,6 +41,14 @@ def test_persona_requires_every_field(tmp_path):
         load_persona(bad)
 
 
+def test_real_personas_are_valid_and_match_the_shareholders():
+    personas = load_personas(ROOT / "personas")
+    assert set(personas) == {"uffici", "cda"}
+    assert "Franco Valsecchi, il fondatore" in personas["cda"]["story"]
+    family = sum(s["share"] for s in COMPANY["shareholders"] if s["name"].endswith("Valsecchi"))
+    assert family == pytest.approx(0.70) and sum(s["share"] for s in COMPANY["shareholders"]) == pytest.approx(1)
+
+
 def test_italian_number_format():
     assert num_it(1_234_567.8) == "1.234.568"
     assert num_it(2.5, 1) == "2,5"
@@ -51,6 +59,8 @@ def test_system_prompt_states_the_real_thresholds():
     assert "Anna Test" in text and "±5%" in text and "100.000 euro" in text
     assert "Giulia Valsecchi" in text and "settimane 4, 8" in text
     assert "120 dipendenti in 3 reparti" in text and "7,5 milioni di euro" in text
+    assert "Franco Valsecchi (fondatore) 30%" in text and "Giulia Valsecchi 10%" in text
+    assert "Orizzonte Industria (fondo di private equity) 30%" in text
     assert "{" not in text  # every placeholder filled
 
 
