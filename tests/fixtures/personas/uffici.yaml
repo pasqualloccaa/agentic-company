@@ -1,0 +1,14 @@
+id: uffici
+name: Anna Test
+age: 40
+role: Amministratrice delegata di prova
+story: Storia di prova.
+character: Carattere di prova.
+hobbies: Nessuno.
+motivations: Superare i test.
+incentive: Bonus di prova.
+weakness: Nessuna.
+speech:
+  - Frase uno.
+  - Frase due.
+  - Frase tre.

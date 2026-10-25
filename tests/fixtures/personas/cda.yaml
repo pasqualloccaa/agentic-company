@@ -1,0 +1,14 @@
+id: cda
+name: Bruno Test
+age: 60
+role: Presidente di prova
+story: Storia di prova.
+character: Carattere di prova.
+hobbies: Nessuno.
+motivations: Superare i test.
+incentive: Compenso fisso di prova.
+weakness: Nessuna.
+speech:
+  - Frase uno.
+  - Frase due.
+  - Frase tre.
