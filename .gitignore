@@ -9,3 +9,6 @@ out/
 
 # never commit non-redistributable assets
 assets/private/
+
+# personal Claude Code setup of the author, not part of the project
+tools/setup-claude-tools.ps1
